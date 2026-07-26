@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tutor App</title>
+<style>
+  body { font-family: Arial; margin: 0; background: #f0f4f8; }
+  h1 { text-align:center; padding:15px; color:#2563eb; }
+  nav { background: #2563eb; padding: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  nav button { padding: 14px 20px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; background: white; font-weight: bold; }
+  .tab { display: none; padding: 20px; }
+  .tab.active { display: block; }
+  .quiz-box { background: white; padding: 25px; border-radius: 12px; margin: 20px auto; max-width: 900px; }
+  button.action { background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; margin: 5px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>📚 Tutor App</h1>
+<nav>
+  <button onclick="showTab('admin')">🔒 ADMIN</button>
+  <button onclick="showTab('revise')">📝 REVISE - 20Q</button>
+  <button onclick="showTab('homework')">📖 HOMEWORK - 5Q + 10Q</button>
+</nav>
+
+<div id="admin" class="tab active">
+  <h2>📁 ADMIN PANEL</h2>
+  <p>Upload your daily sheet images to the <b>pages</b> folder.</p>
+  <p>File name format: <b>Mathematics-1.jpg</b>, <b>Science-2.jpg</b></p>
+</div>
+
+<div id="revise" class="tab">
+  <h2>📝 REVISE - 20 Questions</h2>
+  <div id="reviseBtns"></div>
+  <div id="reviseQuiz" class="quiz-box"></div>
+</div>
+
+<div id="homework" class="tab">
+  <h2>📖 HOMEWORK</h2>
+  <div id="homeworkBtns"></div>
+  <div id="homeworkArea" class="quiz-box"></div>
+</div>
+
+<script>
+const SUBJECTS = ["Mathematics","Science","Social Studies","English Language","English Literature","French","Marathi"];
+
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='revise' || id==='homework') loadButtons();
+}
+
+function loadButtons(){
+  document.getElementById('reviseBtns').innerHTML = SUBJECTS.map(s => `<button class="action" onclick="alert('Upload pages for ${s} first')">${s}</button>`).join('');
+  document.getElementById('homeworkBtns').innerHTML = SUBJECTS.map(s => `<button class="action" onclick="alert('Upload pages for ${s} first')">${s}</button>`).join('');
+}
+</script>
+</body>
+</html>
