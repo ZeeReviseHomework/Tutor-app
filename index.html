@@ -11,7 +11,14 @@
   .tab { display: none; padding: 20px; }
   .tab.active { display: block; }
   .quiz-box { background: white; padding: 25px; border-radius: 12px; margin: 20px auto; max-width: 900px; }
-  button.action { background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; margin: 5px; cursor: pointer; }
+  .subject-btn { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); background:white; cursor:pointer; }
+  .subjects-row { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+  .thumb { height:40px; border-radius:6px; object-fit:cover; }
+  .img-viewer img { max-width:100%; border-radius:8px; display:block; margin:12px auto; }
+  .controls { text-align:center; margin-top:12px }
+  .question { margin:12px 0; }
+  .question input { padding:8px; width:100%; box-sizing:border-box; }
+  .small { font-size:0.9em; color:#555 }
 </style>
 </head>
 <body>
@@ -26,33 +33,154 @@
   <h2>📁 ADMIN PANEL</h2>
   <p>Upload your daily sheet images to the <b>pages</b> folder.</p>
   <p>File name format: <b>Mathematics-1.jpg</b>, <b>Science-2.jpg</b></p>
+  <p class="small">This app will look for a pages/manifest.json to know which images belong to which subjects. Example manifest format is pages/manifest.json.</p>
 </div>
 
 <div id="revise" class="tab">
   <h2>📝 REVISE - 20 Questions</h2>
-  <div id="reviseBtns"></div>
+  <div id="reviseBtns" class="subjects-row"></div>
   <div id="reviseQuiz" class="quiz-box"></div>
 </div>
 
 <div id="homework" class="tab">
   <h2>📖 HOMEWORK</h2>
-  <div id="homeworkBtns"></div>
+  <div id="homeworkBtns" class="subjects-row"></div>
   <div id="homeworkArea" class="quiz-box"></div>
 </div>
 
 <script>
-const SUBJECTS = ["Mathematics","Science","Social Studies","English Language","English Literature","French","Marathi"];
+const SUBJECTS = ["Mathematics","Science","Social Studies","English Language","English Literature","French","Marathi"]; 
+let MANIFEST = [];
+let activeTab = 'admin';
 
 function showTab(id){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  activeTab = id;
   if(id==='revise' || id==='homework') loadButtons();
 }
 
-function loadButtons(){
-  document.getElementById('reviseBtns').innerHTML = SUBJECTS.map(s => `<button class="action" onclick="alert('Upload pages for ${s} first')">${s}</button>`).join('');
-  document.getElementById('homeworkBtns').innerHTML = SUBJECTS.map(s => `<button class="action" onclick="alert('Upload pages for ${s} first')">${s}</button>`).join('');
+async function loadButtons(){
+  // try to load pages/manifest.json
+  try {
+    const res = await fetch('pages/manifest.json');
+    if(!res.ok) throw new Error('manifest not found');
+    MANIFEST = await res.json();
+  } catch(e){
+    // fallback: show SUBJECTS with a notice
+    document.getElementById('reviseBtns').innerHTML = SUBJECTS.map(s => `<button class="action subject-btn" onclick="alert('Upload pages for ${s} first')">${s}</button>`).join('');
+    document.getElementById('homeworkBtns').innerHTML = SUBJECTS.map(s => `<button class="action subject-btn" onclick="alert('Upload pages for ${s} first')">${s}</button>`).join('');
+    return;
+  }
+
+  function makeButtons(){
+    return MANIFEST.map(entry => {
+      const thumb = entry.files && entry.files.length ? `pages/${entry.files[0]}` : '';
+      const imgTag = thumb ? `<img class="thumb" src="${thumb}" alt="${entry.subject}">` : '';
+      return `<button class="subject-btn" onclick="openSubject('${entry.subject}')">${imgTag}<span>${entry.subject}</span></button>`;
+    }).join('');
+  }
+
+  document.getElementById('reviseBtns').innerHTML = makeButtons();
+  document.getElementById('homeworkBtns').innerHTML = makeButtons();
 }
+
+function openSubject(subject){
+  const entry = MANIFEST.find(e => e.subject === subject);
+  if(!entry){ alert('No sheets uploaded for ' + subject); return; }
+  const imagePath = entry.files && entry.files.length ? `pages/${entry.files[0]}` : null;
+  const areaId = activeTab === 'revise' ? 'reviseQuiz' : 'homeworkArea';
+  const area = document.getElementById(areaId);
+  area.innerHTML = `<h3>${subject}</h3>`;
+  if(imagePath){
+    const viewer = document.createElement('div');
+    viewer.className = 'img-viewer';
+    const img = document.createElement('img');
+    img.src = imagePath;
+    img.alt = subject;
+    viewer.appendChild(img);
+    area.appendChild(viewer);
+  }
+  const controls = document.createElement('div');
+  controls.className = 'controls';
+  controls.innerHTML = `<button class="action" onclick="startQuiz('${subject}')">Start quiz (5)</button> <button class="action" onclick="openSheetFolder('${subject}')">Open sheet</button>`;
+  area.appendChild(controls);
+}
+
+async function startQuiz(subject){
+  // try to load questions from pages/<image-basename>.json
+  const entry = MANIFEST.find(e => e.subject === subject);
+  if(!entry){ alert('No sheets for ' + subject); return; }
+  const firstFile = entry.files && entry.files.length ? entry.files[0] : null;
+  if(!firstFile){ alert('No image file listed for ' + subject); return; }
+  const base = firstFile.replace(/\.[^.]+$/, '');
+  const qUrl = `pages/${base}.json`;
+  let questions = null;
+  try {
+    const res = await fetch(qUrl);
+    if(res.ok) questions = await res.json();
+  } catch(e){ /* ignore */ }
+
+  const areaId = activeTab === 'revise' ? 'reviseQuiz' : 'homeworkArea';
+  const area = document.getElementById(areaId);
+  area.innerHTML = `<h3>${subject} — Quiz</h3>`;
+
+  if(!questions || !questions.length){
+    area.innerHTML += `<p class="small">No question file found next to the first image. To add questions, create a JSON file at <code>pages/${base}.json</code> with an array of questions: [{"q":"...","a":"..."}, ...]</p>`;
+    area.innerHTML += `<div class="controls"><button class="action" onclick="generateMock('${subject}')">Generate mock 5 questions</button></div>`;
+    return;
+  }
+
+  renderQuestions(area, questions.slice(0,5));
+}
+
+function renderQuestions(area, questions){
+  const form = document.createElement('div');
+  form.id = 'quizForm';
+  questions.forEach((qq, idx) => {
+    const qdiv = document.createElement('div');
+    qdiv.className = 'question';
+    qdiv.innerHTML = `<label><strong>Q${idx+1}.</strong> ${qq.q}</label><br><input data-answer="${qq.a || ''}" data-index="${idx}" placeholder="Your answer">`;
+    form.appendChild(qdiv);
+  });
+  const submit = document.createElement('div');
+  submit.className = 'controls';
+  submit.innerHTML = `<button class="action" onclick="gradeQuiz()">Submit Answers</button>`;
+  form.appendChild(submit);
+  area.appendChild(form);
+}
+
+function gradeQuiz(){
+  const inputs = Array.from(document.querySelectorAll('#quizForm input'));
+  let correct = 0;
+  inputs.forEach(inp => {
+    const expected = (inp.dataset.answer || '').trim().toLowerCase();
+    const given = (inp.value || '').trim().toLowerCase();
+    if(expected && expected === given) correct++;
+  });
+  const area = document.getElementById(activeTab === 'revise' ? 'reviseQuiz' : 'homeworkArea');
+  area.innerHTML += `<p class="small">You scored ${correct} / ${inputs.length} (only exact matches counted).</p>`;
+}
+
+function openSheetFolder(subject){
+  alert('Open the pages/ folder in the repo and upload files named like Mathematics-1.jpg. I can also add a manifest for you.');
+}
+
+function generateMock(subject){
+  // very simple mock generator — placeholder questions
+  const mocks = [
+    {q: 'What is 2 + 3?', a: '5'},
+    {q: 'What is 7 - 4?', a: '3'},
+    {q: 'What is 5 x 2?', a: '10'},
+    {q: 'What is 9 ÷ 3?', a: '3'},
+    {q: 'What is 6 + 7?', a: '13'}
+  ];
+  const area = document.getElementById(activeTab === 'revise' ? 'reviseQuiz' : 'homeworkArea');
+  renderQuestions(area, mocks);
+}
+
+// initial load: try to prefetch manifest so admin sees state
+fetch('pages/manifest.json').then(r=>{ if(r.ok) r.json().then(m=>MANIFEST=m); }).catch(()=>{});
 </script>
 </body>
 </html>
