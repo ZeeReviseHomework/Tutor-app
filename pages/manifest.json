@@ -1,0 +1,9 @@
+[
+  { "subject": "Mathematics", "files": ["math-1.jpg", "math-2.jpg"] },
+  { "subject": "Science", "files": [] },
+  { "subject": "Social Studies", "files": [] },
+  { "subject": "English Language", "files": [] },
+  { "subject": "English Literature", "files": [] },
+  { "subject": "French", "files": [] },
+  { "subject": "Marathi", "files": [] }
+]
